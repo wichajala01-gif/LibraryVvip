@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบห้องสมุดโรงเรียน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: 'Mitr', sans-serif;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background-color: #4f46e5; /* Indigo-600 */
+            color: white;
+            border-bottom-width: 4px;
+            border-bottom-color: #a78bfa; /* Violet-400 */
+        }
+        .form-input {
+            @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400;
+        }
+        .form-label {
+            @apply block text-gray-700 text-sm font-bold mb-2;
+        }
+        .submit-button {
+            @apply w-full bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition duration-300;
+        }
+        #qr-reader {
+            border: 2px dashed #a78bfa;
+            border-radius: 8px;
+            overflow: hidden; /* Important for camera view styling */
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-100 via-blue-100 to-purple-100 min-h-screen">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 via-blue-600 to-purple-700">
+                📚 ระบบห้องสมุดอัจฉริยะ 📚
+            </h1>
+            <p class="text-gray-600 mt-2">สำหรับนักเรียนชั้นประถมศึกษาปีที่ 1 - 6</p>
+        </header>
+
+        <!-- Tabs Navigation -->
+        <div class="mb-6 bg-white/70 backdrop-blur-sm rounded-xl shadow-md p-2 flex flex-wrap justify-center gap-2">
+            <button class="tab-button active flex-grow md:flex-none px-6 py-3 rounded-lg font-semibold" onclick="showTab('borrow-return')">ยืม-คืนหนังสือ</button>
+            <button class="tab-button flex-grow md:flex-none px-6 py-3 rounded-lg font-semibold" onclick="showTab('check-in-out')">เข้า-ออกห้องสมุด</button>
+            <button class="tab-button flex-grow md:flex-none px-6 py-3 rounded-lg font-semibold" onclick="showTab('add-book')">เพิ่มหนังสือใหม่</button>
+            <button class="tab-button flex-grow md:flex-none px-6 py-3 rounded-lg font-semibold" onclick="showTab('assistant')">ผู้ช่วยบรรณารักษ์</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="tab-content" class="bg-white/80 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-xl">
+
+            <!-- Borrow-Return Tab -->
+            <div id="borrow-return" class="tab-panel">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">ฟอร์มยืม-คืนหนังสือ</h2>
+                <form id="borrow-return-form">
+                    <input type="hidden" name="action" value="borrowReturn">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="form-label" for="br-student-id">เลขประจำตัวนักเรียน</label>
+                            <input class="form-input" id="br-student-id" name="studentId" type="number" placeholder="เช่น 1234" required min="1" max="9999">
+                        </div>
+                        <div>
+                            <label class="form-label" for="br-student-name">ชื่อ-สกุลนักเรียน</label>
+                            <input class="form-input" id="br-student-name" name="studentName" type="text" placeholder="เช่น เด็กชายใจดี มีสุข" required>
+                        </div>
+                    </div>
+                    
+                    <div class="my-6 p-4 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50">
+                        <h3 class="text-lg font-semibold text-purple-800 mb-2 text-center">ข้อมูลหนังสือ</h3>
+                        <div id="scanner-container" class="my-4">
+                            <!-- This div will contain the QR Code scanner video feed -->
+                            <div id="qr-reader" class="w-full mx-auto" style="display: none;"></div>
+                        </div>
+                        <button type="button" id="start-scan-btn" class="w-full bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition duration-300 mb-4">
+                            📷 สแกน QR Code หนังสือ
+                        </button>
+                         <p class="text-center text-sm text-gray-500">หรือกรอกข้อมูลด้วยตนเองด้านล่าง</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div>
+                            <label class="form-label" for="br-book-id">รหัสหนังสือ</label>
+                            <input class="form-input" id="br-book-id" name="bookId" type="text" placeholder="สแกน QR หรือกรอกรหัสหนังสือ" required>
+                        </div>
+                        <div>
+                            <label class="form-label" for="br-book-title">ชื่อหนังสือ</label>
+                            <input class="form-input" id="br-book-title" name="bookTitle" type="text" placeholder="ข้อมูลจะแสดงอัตโนมัติเมื่อสแกน" required>
+                        </div>
+                        <div>
+                            <label class="form-label" for="br-author">ผู้แต่ง</label>
+                            <input class="form-input" id="br-author" name="author" type="text" placeholder="ข้อมูลจะแสดงอัตโนมัติเมื่อสแกน" required>
+                        </div>
+                        <div>
+                             <label class="form-label" for="br-dewey">หมวดหมู่ดิวอี้</label>
+                             <select id="br-dewey" name="dewey" class="form-input" required>
+                                <option value="" disabled selected>เลือกหมวดหมู่</option>
+                                <option value="000">000 - เบ็ตเตล็ดหรือความรู้ทั่วไป</option>
+                                <option value="100">100 - ปรัชญา</option>
+                                <option value="200">200 - ศาสนา</option>
+                                <option value="300">300 - สังคมศาสตร์</option>
+                                <option value="400">400 - ภาษาศาสตร์</option>
+                                <option value="500">500 - วิทยาศาสตร์</option>
+                                <option value="600">600 - วิทยาศาสตร์ประยุกต์ หรือเทคโนโลยี</option>
+                                <option value="700">700 - ศิลปะและนันทนาการ</option>
+                                <option value="800">800 - วรรณคดี</option>
+                                <option value="900">900 - ประวัติศาสตร์และภูมิศาสตร์</option>
+                             </select>
+                        </div>
+                         <div>
+                            <label class="form-label" for="br-publisher">สำนักพิมพ์</label>
+                            <input class="form-input" id="br-publisher" name="publisher" type="text" placeholder="ข้อมูลจะแสดงอัตโนมัติเมื่อสแกน" required>
+                        </div>
+                         <div>
+                            <label class="form-label" for="br-publish-year">ปีที่พิมพ์</label>
+                            <input class="form-input" id="br-publish-year" name="publishYear" type="number" placeholder="ข้อมูลจะแสดงอัตโนมัติเมื่อสแกน" required>
+                        </div>
+                         <div class="md:col-span-2">
+                            <label class="form-label" for="br-type">ประเภทรายการ</label>
+                            <select id="br-type" name="type" class="form-input" required>
+                                <option value="" disabled selected>เลือกประเภทรายการ</option>
+                                <option value="ยืม">ยืม</option>
+                                <option value="คืน">คืน</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-8">
+                        <button class="submit-button" type="submit">บันทึกข้อมูลยืม-คืน</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Check-in/out Tab -->
+            <div id="check-in-out" class="tab-panel" style="display: none;">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">บันทึกการเข้า-ออกห้องสมุด</h2>
+                <form id="check-in-out-form" class="max-w-md mx-auto">
+                    <input type="hidden" name="action" value="checkInOut">
+                     <div class="mb-4">
+                        <label class="form-label" for="cio-student-id">เลขประจำตัวนักเรียน</label>
+                        <input class="form-input" id="cio-student-id" name="studentId" type="number" placeholder="เช่น 1234" required min="1" max="9999">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="cio-student-name">ชื่อ-สกุลนักเรียน</label>
+                        <input class="form-input" id="cio-student-name" name="studentName" type="text" placeholder="เช่น เด็กหญิงน่ารัก เรียนดี" required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="form-label" for="cio-type">ประเภท</label>
+                        <select id="cio-type" name="type" class="form-input" required>
+                            <option value="" disabled selected>เลือกประเภท</option>
+                            <option value="เข้า">เข้า</option>
+                            <option value="ออก">ออก</option>
+                        </select>
+                    </div>
+                    <button class="submit-button" type="submit">บันทึกเวลา</button>
+                </form>
+            </div>
+            
+            <!-- Add Book Tab -->
+            <div id="add-book" class="tab-panel" style="display: none;">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">เพิ่มข้อมูลหนังสือใหม่</h2>
+                 <form id="add-book-form">
+                    <input type="hidden" name="action" value="addBook">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="form-label" for="ab-book-title">ชื่อหนังสือ</label>
+                            <input class="form-input" id="ab-book-title" name="bookTitle" type="text" required>
+                        </div>
+                        <div>
+                            <label class="form-label" for="ab-author">ผู้แต่ง</label>
+                            <input class="form-input" id="ab-author" name="author" type="text" required>
+                        </div>
+                        <div>
+                             <label class="form-label" for="ab-dewey">หมวดหมู่ดิวอี้</label>
+                             <select id="ab-dewey" name="dewey" class="form-input" required>
+                                <option value="" disabled selected>เลือกหมวดหมู่</option>
+                                <option value="000">000 - เบ็ตเตล็ดหรือความรู้ทั่วไป</option>
+                                <option value="100">100 - ปรัชญา</option>
+                                <option value="200">200 - ศาสนา</option>
+                                <option value="300">300 - สังคมศาสตร์</option>
+                                <option value="400">400 - ภาษาศาสตร์</option>
+                                <option value="500">500 - วิทยาศาสตร์</option>
+                                <option value="600">600 - วิทยาศาสตร์ประยุกต์ หรือเทคโนโลยี</option>
+                                <option value="700">700 - ศิลปะและนันทนาการ</option>
+                                <option value="800">800 - วรรณคดี</option>
+                                <option value="900">900 - ประวัติศาสตร์และภูมิศาสตร์</option>
+                             </select>
+                        </div>
+                         <div>
+                            <label class="form-label" for="ab-publisher">สำนักพิมพ์</label>
+                            <input class="form-input" id="ab-publisher" name="publisher" type="text" required>
+                        </div>
+                         <div>
+                            <label class="form-label" for="ab-publish-year">ปีที่พิมพ์</label>
+                            <input class="form-input" id="ab-publish-year" name="publishYear" type="number" placeholder="พ.ศ." required>
+                        </div>
+                         <div>
+                            <label class="form-label" for="ab-book-id">รหัสหนังสือ (ไม่ซ้ำกัน)</label>
+                            <input class="form-input" id="ab-book-id" name="bookId" type="text" placeholder="เช่น B0001" required>
+                        </div>
+                    </div>
+                    <div class="mt-8">
+                        <button class="submit-button" type="submit">เพิ่มหนังสือเข้าสู่ระบบ</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Assistant Tab -->
+            <div id="assistant" class="tab-panel" style="display: none;">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">บันทึกการทำงานผู้ช่วยบรรณารักษ์</h2>
+                 <form id="assistant-form" class="max-w-md mx-auto">
+                    <input type="hidden" name="action" value="assistantLog">
+                     <div class="mb-4">
+                        <label class="form-label" for="as-name">ชื่อผู้ช่วยบรรณารักษ์</label>
+                        <input class="form-input" id="as-name" name="assistantName" type="text" required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="form-label" for="as-task">งานที่ทำ</label>
+                        <select id="as-task" name="task" class="form-input" required>
+                            <option value="" disabled selected>เลือกงานที่ทำ</option>
+                            <option value="กวาดพื้น">กวาดพื้น</option>
+                            <option value="ถูพื้น">ถูพื้น</option>
+                            <option value="จัดเก็บหนังสือ">จัดเก็บหนังสือ</option>
+                            <option value="เช็ดโต๊ะ">เช็ดโต๊ะ</option>
+                            <option value="บริการยืม-คืนหนังสือ">บริการยืม-คืนหนังสือ</option>
+                            <option value="เช็ดชั้นหนังสือ">เช็ดชั้นหนังสือ</option>
+                        </select>
+                    </div>
+                    <button class="submit-button" type="submit">บันทึกการทำงาน</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZzODVABJ4H5e6IcMkljn_djImg3hP6gVF9fNBknM2pFdX9a9w3ZsXezaFp6pFJvr3HA/exec";
+
+    function showTab(tabId) {
+        document.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.style.display = 'none';
+        });
+        document.getElementById(tabId).style.display = 'block';
+
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        document.querySelector(`button[onclick="showTab('${tabId}')"]`).classList.add('active');
+    }
+
+    function handleFormSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        
+        Swal.fire({
+            title: 'กำลังบันทึกข้อมูล...',
+            text: 'กรุณารอสักครู่',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const formData = new FormData(form);
+        let url = SCRIPT_URL + "?callback=handleResponse";
+        formData.forEach((value, key) => {
+            url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+        });
+        
+        const timestamp = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+        url += `&timestamp=${encodeURIComponent(timestamp)}`;
+
+        const script = document.createElement('script');
+        script.src = url;
+        document.body.appendChild(script);
+        
+        script.onload = () => document.body.removeChild(script);
+        script.onerror = () => {
+             document.body.removeChild(script);
+             Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', 'error');
+        };
+    }
+    
+    window.handleResponse = function(response) {
+        if (response.status === 'success') {
+            Swal.fire('สำเร็จ!', response.message, 'success');
+            const activeFormId = document.querySelector('.tab-panel[style*="block"]').querySelector('form').id;
+            document.getElementById(activeFormId).reset();
+        } else {
+            Swal.fire('เกิดข้อผิดพลาด', response.message, 'error');
+        }
+    }
+    
+    document.getElementById('borrow-return-form').addEventListener('submit', handleFormSubmit);
+    document.getElementById('check-in-out-form').addEventListener('submit', handleFormSubmit);
+    document.getElementById('add-book-form').addEventListener('submit', handleFormSubmit);
+    document.getElementById('assistant-form').addEventListener('submit', handleFormSubmit);
+
+    // --- NEW AND IMPROVED QR Code Scanner Logic ---
+    let html5QrCode = null;
+
+    function stopScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                console.log("QR Code scanning stopped.");
+                document.getElementById('qr-reader').style.display = 'none';
+                document.getElementById('start-scan-btn').textContent = '📷 สแกน QR Code หนังสือ';
+            }).catch(err => {
+                console.error("Failed to stop QR Code scanning.", err);
+            });
+        }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        console.log(`Scan result: ${decodedText}`);
+        stopScanner();
+        Swal.fire({
+            title: 'สแกนสำเร็จ!',
+            text: `กำลังค้นหาข้อมูลหนังสือรหัส: ${decodedText}`,
+            icon: 'info',
+            showConfirmButton: false,
+            timer: 1500
+        });
+        fetchBookData(decodedText);
+    }
+
+    function onScanFailure(error) {
+        // This function can be verbose. It's useful for debugging but not for users.
+        // console.warn(`Code scan error = ${error}`);
+    }
+
+    function fetchBookData(bookId) {
+         Swal.fire({
+            title: 'กำลังดึงข้อมูล...', allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+        const url = `${SCRIPT_URL}?callback=handleBookDataResponse&action=getBookData&bookId=${encodeURIComponent(bookId)}`;
+        const script = document.createElement('script');
+        script.src = url;
+        document.body.appendChild(script);
+        script.onload = () => document.body.removeChild(script);
+        script.onerror = () => {
+             document.body.removeChild(script);
+             Swal.fire('ผิดพลาด', 'ไม่สามารถดึงข้อมูลหนังสือได้', 'error');
+        };
+    }
+    
+    window.handleBookDataResponse = function(response) {
+        if(response.status === 'success' && response.data) {
+            const data = response.data;
+            document.getElementById('br-book-id').value = data.bookId || '';
+            document.getElementById('br-book-title').value = data.bookTitle || '';
+            document.getElementById('br-author').value = data.author || '';
+            document.getElementById('br-dewey').value = data.dewey || '';
+            document.getElementById('br-publisher').value = data.publisher || '';
+            document.getElementById('br-publish-year').value = data.publishYear || '';
+            Swal.fire('สำเร็จ!', 'แสดงข้อมูลหนังสือเรียบร้อยแล้ว', 'success');
+        } else {
+             Swal.fire('ไม่พบข้อมูล', `ไม่พบข้อมูลหนังสือรหัส "${response.bookId}" ในระบบ`, 'warning');
+        }
+    }
+
+    document.getElementById('start-scan-btn').addEventListener('click', () => {
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("qr-reader");
+        }
+
+        if (html5QrCode.isScanning) {
+            stopScanner();
+        } else {
+            const qrReaderElement = document.getElementById('qr-reader');
+            qrReaderElement.style.display = 'block';
+            document.getElementById('start-scan-btn').textContent = '⏹️ กำลังเปิดกล้อง...';
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+            // Find the back camera
+            Html5Qrcode.getCameras().then(cameras => {
+                if (cameras && cameras.length) {
+                    let cameraId = cameras.find(camera => camera.label.toLowerCase().includes('back'))?.id;
+                    if (!cameraId) {
+                        cameraId = cameras[cameras.length - 1].id; // Fallback to the last camera
+                    }
+                    
+                    document.getElementById('start-scan-btn').textContent = '⏹️ หยุดสแกน';
+                    html5QrCode.start(
+                        cameraId, 
+                        config, 
+                        onScanSuccess, 
+                        onScanFailure
+                    ).catch(err => {
+                        console.error("Error starting scanner:", err);
+                        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเริ่มการสแกนได้ อาจมีปัญหาในการเข้าถึงกล้อง', 'error');
+                        stopScanner();
+                    });
+                } else {
+                     Swal.fire('ไม่พบกล้อง', 'ไม่พบอุปกรณ์กล้องในเครื่องของคุณ', 'error');
+                     document.getElementById('start-scan-btn').textContent = '📷 สแกน QR Code หนังสือ';
+                }
+            }).catch(err => {
+                console.error("Error getting cameras:", err);
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเข้าถึงกล้องได้ กรุณาตรวจสอบว่าคุณได้อนุญาตให้เว็บไซต์ใช้งานกล้องแล้ว', 'error');
+                document.getElementById('start-scan-btn').textContent = '📷 สแกน QR Code หนังสือ';
+                qrReaderElement.style.display = 'none';
+            });
+        }
+    });
+    
+    showTab('borrow-return');
+</script>
+
+</body>
+</html>
+
