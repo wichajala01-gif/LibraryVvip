@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบห้องสมุด</title>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<style>
+  body{ font-family:sans-serif; margin:20px; }
+  .hidden{ display:none; }
+  .tab-btn{ padding:5px 10px; margin-right:5px; cursor:pointer; border:1px solid #ccc; border-radius:5px; }
+  .tab-btn.ring-2{ border:2px solid #007BFF; }
+  .tab-pane{ margin-top:20px; }
+  input, select{ margin-bottom:10px; display:block; padding:5px; width:300px; }
+  label{ display:block; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<h1>ระบบห้องสมุด</h1>
+
+<!-- TAB BUTTONS -->
+<div>
+  <span class="tab-btn" data-tab="borrow">ยืม-คืน</span>
+  <span class="tab-btn" data-tab="addbook">เพิ่มหนังสือ</span>
+  <span class="tab-btn" data-tab="entry">เข้า-ออกห้องสมุด</span>
+  <span class="tab-btn" data-tab="assistant">ผู้ช่วยบรรณารักษ์</span>
+</div>
+
+<!-- TAB CONTENT -->
+<div id="tab-borrow" class="tab-pane">
+  <h2>ยืม-คืน</h2>
+  <form id="form-borrow">
+    <label>รหัสนักเรียน (เลข 4 หลักใดก็ได้)
+      <input type="text" id="studentId" maxlength="4" required>
+    </label>
+    <label>ชื่อนักเรียน <input type="text" id="studentName" required></label>
+    <label>รหัสหนังสือ <input type="text" id="bookCode"></label>
+    <button type="button" id="btn-fetch-book">ดึงข้อมูลหนังสือ</button>
+    <label>ชื่อหนังสือ <input type="text" id="bookTitle"></label>
+    <label>ผู้แต่ง <input type="text" id="author"></label>
+    <label>หมวดหมู่ <select id="dewey"></select></label>
+    <label>สำนักพิมพ์ <input type="text" id="publisher"></label>
+    <label>ปีที่พิมพ์ <input type="text" id="year"></label>
+    <label><input type="radio" name="type" value="borrow" required> ยืม</label>
+    <label><input type="radio" name="type" value="return"> คืน</label>
+    <button type="submit">บันทึก</button>
+  </form>
+</div>
+
+<div id="tab-addbook" class="tab-pane hidden">
+  <h2>เพิ่มหนังสือ</h2>
+  <form id="form-addbook">
+    <label>วันที่เพิ่ม <input type="date" id="add-date" required></label>
+    <label>ชื่อหนังสือ <input type="text" id="add-title" required></label>
+    <label>ผู้แต่ง <input type="text" id="add-author" required></label>
+    <label>หมวดหมู่ <select id="add-dewey"></select></label>
+    <label>สำนักพิมพ์ <input type="text" id="add-publisher"></label>
+    <label>ปีที่พิมพ์ <input type="text" id="add-year"></label>
+    <button type="submit">เพิ่มหนังสือ</button>
+  </form>
+</div>
+
+<div id="tab-entry" class="tab-pane hidden">
+  <h2>บันทึกเข้า-ออกห้องสมุด</h2>
+  <form id="form-entry">
+    <label>รหัสนักเรียน <input type="text" id="entry-studentId" maxlength="4" required></label>
+    <label>ชื่อนักเรียน <input type="text" id="entry-studentName" required></label>
+    <label><input type="radio" name="entryType" value="in" required> เข้า</label>
+    <label><input type="radio" name="entryType" value="out"> ออก</label>
+    <button type="submit">บันทึก</button>
+  </form>
+</div>
+
+<div id="tab-assistant" class="tab-pane hidden">
+  <h2>ผู้ช่วยบรรณารักษ์</h2>
+  <form id="form-assistant">
+    <label>รหัสนักเรียน <input type="text" id="as-studentId" maxlength="4" required></label>
+    <label>ชื่อนักเรียน <input type="text" id="as-studentName" required></label>
+    <label>งานที่ทำ</label>
+    <label><input type="checkbox" name="tasks" value="กวาดพื้น"> กวาดพื้น</label>
+    <label><input type="checkbox" name="tasks" value="ถูพื้น"> ถูพื้น</label>
+    <label><input type="checkbox" name="tasks" value="จัดเก็บหนังสือ"> จัดเก็บหนังสือ</label>
+    <label><input type="checkbox" name="tasks" value="เช็ดโต๊ะ"> เช็ดโต๊ะ</label>
+    <label><input type="checkbox" name="tasks" value="บริการการยืม คืนหนังสือ"> บริการการยืม คืนหนังสือ</label>
+    <label><input type="checkbox" name="tasks" value="เช็ดชั้นหนังสือ"> เช็ดชั้นหนังสือ</label>
+    <button type="submit">บันทึก</button>
+  </form>
+</div>
+
+<script>
+  const APP_URL = 'https://script.google.com/macros/s/AKfycbwZzODVABJ4H5e6IcMkljn_djImg3hP6gVF9fNBknM2pFdX9a9w3ZsXezaFp6pFJvr3HA/exec';
+  const DEWEY_OPTIONS = [
+    '000 สารานุกรม/คอมพิวเตอร์', '100 ปรัชญา', '200 ศาสนา', '300 สังคมศาสตร์',
+    '400 ภาษา', '500 วิทยาศาสตร์', '600 วิทยาศาสตร์ประยุกต์', '700 ศิลปะ',
+    '800 วรรณคดี', '900 ประวัติศาสตร์/ภูมิศาสตร์'
+  ];
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  function fillDeweySelects() {
+    ['#dewey', '#add-dewey'].forEach(id => {
+      const el = $(id);
+      el.innerHTML = '<option value="">-- เลือกหมวดหมู่ดิวอี้ --</option>' +
+        DEWEY_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('');
+    });
+  }
+
+  function serialize(obj) { return Object.keys(obj).map(k => `${encodeURIComponent(k)}=${encodeURIComponent(obj[k])}`).join('&'); }
+
+  function jsonp(params) {
+    return new Promise((resolve, reject) => {
+      const cb = 'cb_' + Math.random().toString(36).slice(2);
+      window[cb] = (data) => { resolve(data); cleanup(); };
+      const s = document.createElement('script');
+      const url = APP_URL + '?' + serialize({ ...params, callback: cb });
+      s.src = url;
+      s.onerror = () => { reject(new Error('JSONP error')); cleanup(); };
+      document.body.appendChild(s);
+      function cleanup(){ delete window[cb]; s.remove(); }
+      setTimeout(() => { reject(new Error('timeout')); cleanup(); }, 15000);
+    });
+  }
+
+  function validStudentId(id){ return /^\d{4}$/.test(id); }
+  function toast(icon, title){ return Swal.fire({ icon, title, timer: 1600, showConfirmButton: false, position:'top', toast:true }); }
+
+  $$('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    $$('.tab-pane').forEach(p => p.classList.add('hidden'));
+    $('#tab-' + tab).classList.remove('hidden');
+    $$('.tab-btn').forEach(b => b.classList.remove('ring-2'));
+    btn.classList.add('ring-2');
+  }));
+
+  $('#form-borrow').addEventListener('submit', async e => {
+    e.preventDefault();
+    const sid = $('#studentId').value.trim();
+    if(!validStudentId(sid)) return Swal.fire('รหัสนักเรียนต้องเป็นเลข 4 หลัก');
+    const payload = {
+      action: 'borrowReturnAdd', sheet: 'ยืม-คืน',
+      studentId: sid,
+      studentName: $('#studentName').value.trim(),
+      bookTitle: $('#bookTitle').value.trim(),
+      author: $('#author').value.trim(),
+      dewey: $('#dewey').value,
+      publisher: $('#publisher').value.trim(),
+      year: $('#year').value.trim(),
+      bookCode: $('#bookCode').value.trim(),
+      type: document.querySelector('input[name="type"]:checked')?.value || ''
+    };
+    Swal.fire({ title:'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick:false });
+    try{
+      const res = await jsonp(payload);
+      if(res && res.ok){ Swal.fire({ icon:'success', title:'บันทึกสำเร็จ' }); e.target.reset(); }
+      else{ Swal.fire({ icon:'error', title: res?.message || 'บันทึกไม่สำเร็จ' }); }
+    }catch(err){ Swal.fire({ icon:'error', title:'ผิดพลาด', text: err.message }); }
+  });
+
+  $('#form-addbook').addEventListener('submit', async e => {
+    e.preventDefault();
+    const payload = {
+      action: 'bookAdd', sheet: 'รายชื่อหนังสือ',
+      date: $('#add-date').value,
+      title: $('#add-title').value.trim(),
+      author: $('#add-author').value.trim(),
+      dewey: $('#add-dewey').value,
+      publisher: $('#add-publisher').value.trim(),
+      year: $('#add-year').value.trim()
+    };
+    Swal.fire({ title:'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick:false });
+    try{
+      const res = await jsonp(payload);
+      if(res && res.ok){ Swal.fire({ icon:'success', title:'เพิ่มหนังสือสำเร็จ' }); e.target.reset(); }
+      else{ Swal.fire({ icon:'error', title: res?.message || 'เพิ่มหนังสือไม่สำเร็จ' }); }
+    }catch(err){ Swal.fire({ icon:'error', title:'ผิดพลาด', text: err.message }); }
+  });
+
+  $('#form-entry').addEventListener('submit', async e => {
+    e.preventDefault();
+    const sid = $('#entry-studentId').value.trim();
+    if(!validStudentId(sid)) return Swal.fire('รหัสนักเรียนต้องเป็นเลข 4 หลัก');
+    const payload = {
+      action: 'entryLogAdd', sheet: 'เข้า-ออก',
+      studentId: sid,
+      studentName: $('#entry-studentName').value.trim(),
+      type: document.querySelector('input[name="entryType"]:checked')?.value || ''
+    };
+    Swal.fire({ title:'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick:false });
+    try{
+      const res = await jsonp(payload);
+      if(res && res.ok){ Swal.fire({ icon:'success', title:'บันทึกสำเร็จ' }); e.target.reset(); }
+      else{ Swal.fire({ icon:'error', title: res?.message || 'บันทึกไม่สำเร็จ' }); }
+    }catch(err){ Swal.fire({ icon:'error', title:'ผิดพลาด', text: err.message }); }
+  });
+
+  $('#form-assistant').addEventListener('submit', async e => {
+    e.preventDefault();
+    const sid = $('#as-studentId').value.trim();
+    if(!validStudentId(sid)) return Swal.fire('รหัสนักเรียนต้องเป็นเลข 4 หลัก');
+    const tasks = Array.from(document.querySelectorAll('input[name="tasks"]:checked')).map(el => el.value).join(', ');
+    const payload = {
+      action: 'assistantAdd', sheet: 'ผู้ช่วย',
+      studentId: sid,
+      studentName: $('#as-studentName').value.trim(),
+      tasks
+    };
+    Swal.fire({ title:'กำลังบันทึก...', didOpen: () => Swal.showLoading(), allowOutsideClick:false });
+    try{
+      const res = await jsonp(payload);
+      if(res && res.ok){ Swal.fire({ icon:'success', title:'บันทึกสำเร็จ' }); e.target.reset(); }
+      else{ Swal.fire({ icon:'error', title: res?.message || 'บันทึกไม่สำเร็จ' }); }
+    }catch(err){ Swal.fire({ icon:'error', title:'ผิดพลาด', text: err.message }); }
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    fillDeweySelects();
+    document.querySelector('[data-tab="borrow"]').click();
+    $('#add-date').valueAsDate = new Date();
+  });
+</script>
+
+</body>
+</html>
